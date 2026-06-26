@@ -1,0 +1,88 @@
+steps:
+  - label: ":npm: Install dependencies"
+    key: install
+    command: npm ci
+    plugins:
+      - docker#v5.10.0:
+          image: "node:20-alpine"
+          mount-buildkite-agent: false
+
+  - label: ":jest: Run test suite (attempt 1)"
+    key: test-run-1
+    depends_on: install
+    command:
+      - npm run test:ci
+    env:
+      JEST_JUNIT_OUTPUT_DIR: "test-results"
+      JEST_JUNIT_OUTPUT_NAME: "junit-1.xml"
+    artifact_paths:
+      - "test-results/junit-1.xml"
+    plugins:
+      - docker#v5.10.0:
+          image: "node:20-alpine"
+          mount-buildkite-agent: false
+      - test-collector#v1.10.2:
+          files: "test-results/junit-1.xml"
+          format: junit
+          api-token-env-var: BUILDKITE_ANALYTICS_TOKEN
+
+  - label: ":jest: Run test suite (attempt 2)"
+    key: test-run-2
+    depends_on: install
+    command:
+      - npm run test:ci
+    env:
+      JEST_JUNIT_OUTPUT_DIR: "test-results"
+      JEST_JUNIT_OUTPUT_NAME: "junit-2.xml"
+    artifact_paths:
+      - "test-results/junit-2.xml"
+    plugins:
+      - docker#v5.10.0:
+          image: "node:20-alpine"
+          mount-buildkite-agent: false
+      - test-collector#v1.10.2:
+          files: "test-results/junit-2.xml"
+          format: junit
+          api-token-env-var: BUILDKITE_ANALYTICS_TOKEN
+
+  - label: ":jest: Run test suite (attempt 3)"
+    key: test-run-3
+    depends_on: install
+    command:
+      - npm run test:ci
+    env:
+      JEST_JUNIT_OUTPUT_DIR: "test-results"
+      JEST_JUNIT_OUTPUT_NAME: "junit-3.xml"
+    artifact_paths:
+      - "test-results/junit-3.xml"
+    plugins:
+      - docker#v5.10.0:
+          image: "node:20-alpine"
+          mount-buildkite-agent: false
+      - test-collector#v1.10.2:
+          files: "test-results/junit-3.xml"
+          format: junit
+          api-token-env-var: BUILDKITE_ANALYTICS_TOKEN
+
+  - label: ":bar_chart: Flakiness summary"
+    depends_on:
+      - test-run-1
+      - test-run-2
+      - test-run-3
+    allow_dependency_failure: true
+    command: |
+      echo "--- :mag: Comparing results across runs"
+      for n in 1 2 3; do
+        echo "+++ Run $$n"
+        buildkite-agent artifact download "test-results/junit-$$n.xml" . || true
+        if [ -f "test-results/junit-$$n.xml" ]; then
+          echo "Tests failed in run $$n:"
+          grep 'testcase.*failure\|testcase.*error' "test-results/junit-$$n.xml" \
+            | grep -o 'name="[^"]*"' | sed 's/name=//g' || echo "  (none)"
+        fi
+      done
+      echo "--- :buildkite: Check Buildkite Test Analytics for flaky test detection"
+    plugins:
+      - docker#v5.10.0:
+          image: "node:20-alpine"
+          mount-buildkite-agent: false

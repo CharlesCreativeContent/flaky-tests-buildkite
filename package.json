@@ -1,0 +1,21 @@
+{
+  "name": "flaky-tests-buildkite",
+  "version": "1.0.0",
+  "description": "Flaky test suite for Buildkite Test Analytics demo",
+  "scripts": {
+    "test": "jest --testResultsProcessor=jest-junit",
+    "test:watch": "jest --watch",
+    "test:verbose": "jest --verbose",
+    "test:ci": "jest --ci --reporters=default --reporters=jest-junit"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-junit": "^16.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.js"],
+    "testTimeout": 10000,
+    "reporters": ["default"]
+  }
+}
