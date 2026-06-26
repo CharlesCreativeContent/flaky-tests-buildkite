@@ -1,64 +1,67 @@
-/**
- * Flakiness: shared module-level state.
- * The counter module keeps a global variable. Tests that don't reset it
- * pass when run in isolation but fail when run in a suite (order-dependent).
- */
 const { increment, decrement, getCount, reset } = require('../src/counter');
 
-describe('Counter - Suite A', () => {
-  // FLAKY: assumes count starts at 0, but prior suite may have left it dirty
-  test('increment returns 1 from zero', () => {
+beforeEach(() => {
+  reset();
+});
+
+describe('Counter - increment', () => {
+  test('returns 1 from zero', () => {
     expect(increment()).toBe(1);
   });
 
-  // FLAKY: depends on the test above having run first and nothing else in between
-  test('increment twice returns 2', () => {
+  test('increments on successive calls', () => {
+    increment();
     increment();
     expect(getCount()).toBe(2);
   });
 
-  test('decrement reduces count', () => {
-    reset();
+  test('returns the new count each time', () => {
+    expect(increment()).toBe(1);
+    expect(increment()).toBe(2);
+    expect(increment()).toBe(3);
+  });
+});
+
+describe('Counter - decrement', () => {
+  test('reduces count by 1', () => {
     increment();
     increment();
     decrement();
     expect(getCount()).toBe(1);
   });
+
+  test('can go below zero', () => {
+    expect(decrement()).toBe(-1);
+  });
 });
 
-describe('Counter - Suite B', () => {
-  beforeEach(() => {
+describe('Counter - getCount', () => {
+  test('returns 0 after reset', () => {
+    increment();
     reset();
-  });
-
-  test('starts at 0 after reset', () => {
     expect(getCount()).toBe(0);
   });
 
-  test('returns correct count after multiple increments', () => {
+  test('reflects all operations', () => {
     increment();
     increment();
     increment();
-    expect(getCount()).toBe(3);
-  });
-
-  // FLAKY: this test does NOT reset, so the next describe block picks up dirty state
-  test('leaves state dirty intentionally', () => {
-    increment();
-    increment();
+    decrement();
     expect(getCount()).toBe(2);
-    // Deliberately skips reset to pollute the next suite
   });
 });
 
-describe('Counter - Suite C (inherits dirty state)', () => {
-  // FLAKY: expects 0 but Suite B's last test left count at 2
-  test('count is 0 at start of new suite', () => {
+describe('Counter - reset', () => {
+  test('sets count back to 0', () => {
+    increment();
+    increment();
+    reset();
     expect(getCount()).toBe(0);
   });
 
-  // FLAKY: same issue — depends on run order relative to Suite B
-  test('first increment in suite returns 1', () => {
-    expect(increment()).toBe(1);
+  test('is safe to call multiple times', () => {
+    reset();
+    reset();
+    expect(getCount()).toBe(0);
   });
 });
