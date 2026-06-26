@@ -1,6 +1,6 @@
 steps:
-  - label: ":jest: Run test suite (run 1/3)"
-    key: test-run-1
+  - label: ":jest: Run Jest suite (run 1/3)"
+    key: jest-run-1
     command:
       - npm ci
       - npm run test:ci
@@ -11,8 +11,8 @@ steps:
           image: "node:20-alpine"
           mount-buildkite-agent: false
 
-  - label: ":jest: Run test suite (run 2/3)"
-    key: test-run-2
+  - label: ":jest: Run Jest suite (run 2/3)"
+    key: jest-run-2
     command:
       - npm ci
       - npm run test:ci
@@ -23,8 +23,8 @@ steps:
           image: "node:20-alpine"
           mount-buildkite-agent: false
 
-  - label: ":jest: Run test suite (run 3/3)"
-    key: test-run-3
+  - label: ":jest: Run Jest suite (run 3/3)"
+    key: jest-run-3
     command:
       - npm ci
       - npm run test:ci
@@ -34,3 +34,18 @@ steps:
       - docker#v5.10.0:
           image: "node:20-alpine"
           mount-buildkite-agent: false
+
+  - label: ":playwright: Twitter follower count"
+    key: playwright
+    command:
+      - npm ci
+      - npm run test:playwright:ci
+    env:
+      BUILDKITE_ANALYTICS_TOKEN: "${BUILDKITE_ANALYTICS_TOKEN}"
+    plugins:
+      - docker#v5.10.0:
+          # Official Playwright image — Chromium and all system deps pre-installed
+          image: "mcr.microsoft.com/playwright:v1.49.0-noble"
+          mount-buildkite-agent: false
+          environment:
+            - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
