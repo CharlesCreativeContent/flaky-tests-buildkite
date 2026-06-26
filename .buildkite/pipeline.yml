@@ -1,16 +1,9 @@
 steps:
-  - label: ":npm: Install dependencies"
-    key: install
-    command: npm ci
-    plugins:
-      - docker#v5.10.0:
-          image: "node:20-alpine"
-          mount-buildkite-agent: false
-
-  - label: ":jest: Run test suite (run 1)"
+  - label: ":jest: Run test suite (run 1/3)"
     key: test-run-1
-    depends_on: install
-    command: npm run test:ci
+    command:
+      - npm ci
+      - npm run test:ci
     env:
       BUILDKITE_ANALYTICS_TOKEN: "${BUILDKITE_ANALYTICS_TOKEN}"
     plugins:
@@ -18,10 +11,11 @@ steps:
           image: "node:20-alpine"
           mount-buildkite-agent: false
 
-  - label: ":jest: Run test suite (run 2)"
+  - label: ":jest: Run test suite (run 2/3)"
     key: test-run-2
-    depends_on: install
-    command: npm run test:ci
+    command:
+      - npm ci
+      - npm run test:ci
     env:
       BUILDKITE_ANALYTICS_TOKEN: "${BUILDKITE_ANALYTICS_TOKEN}"
     plugins:
@@ -29,10 +23,11 @@ steps:
           image: "node:20-alpine"
           mount-buildkite-agent: false
 
-  - label: ":jest: Run test suite (run 3)"
+  - label: ":jest: Run test suite (run 3/3)"
     key: test-run-3
-    depends_on: install
-    command: npm run test:ci
+    command:
+      - npm ci
+      - npm run test:ci
     env:
       BUILDKITE_ANALYTICS_TOKEN: "${BUILDKITE_ANALYTICS_TOKEN}"
     plugins:

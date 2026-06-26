@@ -1,17 +1,17 @@
 # flaky-tests-buildkite
 
-A Node.js test suite designed to demonstrate flaky test detection with [Buildkite Test Analytics](https://buildkite.com/test-analytics).
+A Node.js Jest test suite integrated with [Buildkite Test Analytics](https://buildkite.com/test-analytics).
 
 ## What's inside
 
-| File | Flakiness pattern |
+| File | What it tests |
 |---|---|
-| `tests/cache.test.js` | **Timing** — TTL expiry tested at boundary values; fails under system load |
-| `tests/queue.test.js` | **Non-deterministic async ordering** — random per-item delays break order assertions |
-| `tests/counter.test.js` | **Shared mutable state** — module-level global pollutes tests across suites |
-| `tests/fetcher.test.js` | **Incomplete mock teardown** — stale `global.fetch` mock bleeds between tests |
-| `tests/scheduler.test.js` | **Mixed timer modes** — real and fake timers interleave, causing phantom callbacks |
-| `tests/random.test.js` | **Uncontrolled randomness / date sensitivity** — Math.random() and Date.now() without mocking |
+| `tests/cache.test.js` | TTL-based cache — uses fake timers for deterministic expiry |
+| `tests/queue.test.js` | Async queue — mocks `Math.random` to eliminate non-deterministic delays |
+| `tests/counter.test.js` | Shared counter module — proper `reset()` in `beforeEach` across all suites |
+| `tests/fetcher.test.js` | HTTP fetch with retry — full mock setup/teardown per test |
+| `tests/scheduler.test.js` | Timer-based scheduler — fake timers throughout for reliable control |
+| `tests/random.test.js` | Controlled randomness — demonstrates mocking `Math.random` and `Date.now` |
 
 ## Running locally
 
@@ -19,17 +19,17 @@ A Node.js test suite designed to demonstrate flaky test detection with [Buildkit
 # Install dependencies
 npm install
 
-# Run all tests (output to terminal)
+# Run all tests
 npm test
 
-# Run with verbose output (recommended for seeing which tests are flaky)
+# Run with verbose output
 npm run test:verbose
 
 # Run in watch mode
 npm run test:watch
 
-# Run multiple times to observe flakiness
-for i in 1 2 3 4 5; do echo "=== Run $i ===" && npm test 2>&1 | tail -5; done
+# Run in CI mode (what Buildkite uses)
+npm run test:ci
 ```
 
 ## Setting up Buildkite
@@ -43,47 +43,41 @@ for i in 1 2 3 4 5; do echo "=== Run $i ===" && npm test 2>&1 | tail -5; done
 
 1. In Buildkite, open **Test Analytics** → **New test suite**.
 2. Select **Jest** as the framework and copy the API token.
-3. Add the token as a pipeline environment variable (or secret):
+3. Add the token as a pipeline environment variable or secret:
 
 ```
 BUILDKITE_ANALYTICS_TOKEN=<your-token>
 ```
 
-### 3. Configure the agent
+### 3. Run a build
 
-The pipeline uses the `docker` plugin with `node:20-alpine`. Your Buildkite agent must have Docker available. If you're using hosted agents this works out of the box.
+Push a commit or trigger a build manually. The pipeline runs the full test suite **3 times in parallel**, each uploading results directly to Test Analytics via the `buildkite-test-collector` Jest reporter. No artifact upload steps needed.
 
-### 4. Run a build
+### 4. View results in Test Analytics
 
-Push a commit or trigger a build manually. The pipeline:
-
-1. **Installs** dependencies
-2. **Runs the test suite three times in parallel** — each run uploads a JUnit XML report to Test Analytics
-3. **Prints a flakiness summary** comparing failures across runs
-
-### 5. View results in Test Analytics
-
-After a few builds, go to **Test Analytics → your suite → Flaky tests**. Tests that pass in some runs and fail in others are automatically flagged as flaky.
+Go to **Test Analytics → your suite** to see test run history, duration trends, and reliability scores across builds.
 
 ## Pipeline structure
 
 ```
-Install deps
-    │
-    ├── Run tests (attempt 1) ──→ Upload JUnit XML
-    ├── Run tests (attempt 2) ──→ Upload JUnit XML
-    └── Run tests (attempt 3) ──→ Upload JUnit XML
-              │
-         Flakiness summary (runs even if tests fail)
+┌─────────────────────────────┐
+│  Run tests (1/3) → upload   │
+│  Run tests (2/3) → upload   │  ← all 3 run in parallel
+│  Run tests (3/3) → upload   │
+└─────────────────────────────┘
 ```
 
-## Why these tests are flaky
+Each step runs `npm ci && npm run test:ci` inside `node:20-alpine` so it is fully self-contained — no shared install step that would be lost between Docker containers.
 
-| Pattern | Root cause | How to fix |
-|---|---|---|
-| Timing | Hard-coded sleep durations at TTL boundaries | Use jest fake timers or wider margins |
-| Async ordering | `Math.random()` in production code path | Mock `Math.random` or don't assert on order |
-| Shared state | Module-level mutable variable | Reset in `beforeEach`; or use dependency injection |
-| Mock teardown | Missing `afterEach(() => jest.restoreAllMocks())` | Add proper teardown to every describe block |
-| Mixed timers | Alternating `useFakeTimers` / `useRealTimers` | Pick one mode per describe block and stick to it |
-| Uncontrolled random | Raw `Math.random()` / `Date.now()` in assertions | Spy and mock before the test; restore after |
+## How the Test Analytics reporter works
+
+`buildkite-test-collector` is registered as a Jest reporter in `package.json`:
+
+```json
+"reporters": [
+  "default",
+  "buildkite-test-collector/jest/reporter"
+]
+```
+
+When `BUILDKITE_ANALYTICS_TOKEN` is set, it streams results to the API after each run. Without the token (local dev), it prints `Missing BUILDKITE_ANALYTICS_TOKEN` and exits cleanly.

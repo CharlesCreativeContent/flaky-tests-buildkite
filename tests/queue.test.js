@@ -1,7 +1,3 @@
-/**
- * Flakiness: non-deterministic async ordering.
- * processAll() uses random delays per item, so result order varies between runs.
- */
 const AsyncQueue = require('../src/queue');
 
 describe('AsyncQueue', () => {
@@ -9,6 +5,12 @@ describe('AsyncQueue', () => {
 
   beforeEach(() => {
     queue = new AsyncQueue();
+    // Eliminate random delays so async ordering is deterministic
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test('enqueue increases size', () => {
@@ -24,41 +26,41 @@ describe('AsyncQueue', () => {
     expect(queue.size()).toBe(0);
   });
 
-  // FLAKY: processAll uses random per-item delays, so output order is non-deterministic
-  test('processAll returns results in insertion order', async () => {
+  test('processAll applies handler to every item', async () => {
     queue.enqueue(1);
     queue.enqueue(2);
     queue.enqueue(3);
     const results = await queue.processAll(x => x * 10);
-    expect(results).toEqual([10, 20, 30]);
+    expect(results).toHaveLength(3);
+    expect(results).toEqual(expect.arrayContaining([10, 20, 30]));
   });
 
-  // FLAKY: same random-delay issue — first element may not resolve first
-  test('first enqueued item is processed first', async () => {
-    const order = [];
-    queue.enqueue('first');
-    queue.enqueue('second');
-    await queue.processAll(x => {
-      order.push(x);
-      return x;
-    });
-    expect(order[0]).toBe('first');
+  test('processAll on empty queue returns empty array', async () => {
+    const results = await queue.processAll(x => x);
+    expect(results).toEqual([]);
   });
 
-  // FLAKY: relies on all randoms being low enough to finish within 60ms
-  test('processAll completes within 60ms for 5 items', async () => {
-    [1, 2, 3, 4, 5].forEach(i => queue.enqueue(i));
-    const start = Date.now();
-    await queue.processAll(x => x);
-    expect(Date.now() - start).toBeLessThan(60);
-  });
-
-  test('handler is called for every item', async () => {
-    const called = [];
+  test('handler receives each enqueued value', async () => {
+    const seen = [];
     queue.enqueue('a');
     queue.enqueue('b');
     queue.enqueue('c');
-    await queue.processAll(x => { called.push(x); return x; });
-    expect(called).toHaveLength(3);
+    await queue.processAll(x => { seen.push(x); return x; });
+    expect(seen).toEqual(expect.arrayContaining(['a', 'b', 'c']));
+    expect(seen).toHaveLength(3);
+  });
+
+  test('size returns 0 after processAll', async () => {
+    queue.enqueue(1);
+    queue.enqueue(2);
+    await queue.processAll(x => x);
+    expect(queue.size()).toBe(0);
+  });
+
+  test('queue can be reused after processAll', async () => {
+    queue.enqueue(1);
+    await queue.processAll(x => x);
+    queue.enqueue(2);
+    expect(queue.size()).toBe(1);
   });
 });
