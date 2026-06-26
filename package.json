@@ -6,15 +6,20 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:verbose": "jest --verbose",
-    "test:ci": "jest --ci"
+    "test:ci": "jest --ci",
+    "test:playwright": "playwright test",
+    "test:playwright:ci": "playwright test --reporter=list,buildkite-test-collector/playwright/reporter"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "buildkite-test-collector": "^1.9.8",
     "jest": "^29.7.0"
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
     "testTimeout": 10000,
     "reporters": [
       "default",
